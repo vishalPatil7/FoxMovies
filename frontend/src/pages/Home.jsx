@@ -1,154 +1,160 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, memo, useCallback } from "react";
 import Navbar from "../components/NavBar/Navbar";
 import MovieCarousel from "../components/Carousel/MovieCarousel";
 import Footer from "../footer";
 import Chatbot from "../components/Chatbot/Chatbot";
 
-export default function Home() {
+const API_URLS = [
+  "https://foxmovies-backend.onrender.com/api/now_playing",
+  "https://foxmovies-backend.onrender.com/api/popular",
+  "https://foxmovies-backend.onrender.com/api/top_rated",
+  "https://foxmovies-backend.onrender.com/api/upcoming",
+];
+
+const SECTIONS = [
+  { id: "trending", label: "Trending", key: "trending" },
+  { id: "top_rated", label: "Top Rated", key: "topRated" },
+  { id: "popular", label: "Popular", key: "popular" },
+  { id: "upcoming", label: "Upcoming", key: "upcoming" },
+];
+
+const initialMoviesState = {
+  trending: [],
+  popular: [],
+  topRated: [],
+  upcoming: [],
+};
+
+const initialLoadingState = {
+  trending: true,
+  popular: true,
+  topRated: true,
+  upcoming: true,
+};
+
+const initialRefsState = {
+  trending: null,
+  popular: null,
+  topRated: null,
+  upcoming: null,
+};
+
+function Home() {
   const [activeSection, setActiveSection] = useState("trending");
+  const [movies, setMovies] = useState(initialMoviesState);
+  const [loading, setLoading] = useState(initialLoadingState);
+  const [error, setError] = useState(null);
 
-  // Movie state
-  const [trending, setTrending] = useState([]);
-  const [popular, setPopular] = useState([]);
-  const [topRated, setTopRated] = useState([]);
-  const [upcoming, setUpcoming] = useState([]);
+  const refs = useRef(initialRefsState);
 
-  // Loading state
-  const [loadingTrending, setLoadingTrending] = useState(true);
-  const [loadingPopular, setLoadingPopular] = useState(true);
-  const [loadingTopRated, setLoadingTopRated] = useState(true);
-  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+  // Memoized scroll function
+  const scrollToSection = useCallback((sectionKey) => {
+    refs.current[sectionKey]?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
-  // Refs
-  const trendingRef = useRef(null);
-  const popularRef = useRef(null);
-  const topratedRef = useRef(null);
-  const upcomingRef = useRef(null);
-
-  // Scrolls
-  const scrollToTrending = () =>
-    trendingRef.current?.scrollIntoView({ behavior: "smooth" });
-  const scrollToPopular = () =>
-    popularRef.current?.scrollIntoView({ behavior: "smooth" });
-  const scrollToToprated = () =>
-    topratedRef.current?.scrollIntoView({ behavior: "smooth" });
-  const scrollToUpcoming = () =>
-    upcomingRef.current?.scrollIntoView({ behavior: "smooth" });
-
-  // Fetch all in parallel
+  // Fetch movies with abort controller
   useEffect(() => {
-    async function fetchAll() {
-      try {
-        const urls = [
-          "https://foxmovies-backend.onrender.com/api/now_playing",
-          "https://foxmovies-backend.onrender.com/api/popular",
-          "https://foxmovies-backend.onrender.com/api/top_rated",
-          "https://foxmovies-backend.onrender.com/api/upcoming",
-        ];
+    const controller = new AbortController();
 
-        const [r1, r2, r3, r4] = await Promise.all(
-          urls.map((u) => fetch(u).then((res) => res.json()))
+    const fetchMovies = async () => {
+      try {
+        const results = await Promise.all(
+          API_URLS.map((url) =>
+            fetch(url, { signal: controller.signal }).then((res) => {
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              return res.json();
+            })
+          )
         );
 
-        setTrending(r1.results);
-        setPopular(r2.results);
-        setTopRated(r3.results);
-        setUpcoming(r4.results);
+        setMovies({
+          trending: results[0].results || [],
+          popular: results[1].results || [],
+          topRated: results[2].results || [],
+          upcoming: results[3].results || [],
+        });
 
-        setLoadingTrending(false);
-        setLoadingPopular(false);
-        setLoadingTopRated(false);
-        setLoadingUpcoming(false);
-      } catch (e) {
-        console.log("Parallel fetch error:", e);
+        setLoading({
+          trending: false,
+          popular: false,
+          topRated: false,
+          upcoming: false,
+        });
+
+        setError(null);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Failed to load movies:", err);
+          setError("Failed to load movies. Please try again later.");
+          setLoading({
+            trending: false,
+            popular: false,
+            topRated: false,
+            upcoming: false,
+          });
+        }
       }
-    }
+    };
 
-    fetchAll();
+    fetchMovies();
+
+    return () => controller.abort();
   }, []);
 
   // Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries) =>
+      (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) setActiveSection(entry.target.id);
-        }),
-      { threshold: 0.4 }
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { threshold: 0.9 }
     );
 
-    const sections = [
-      trendingRef.current,
-      popularRef.current,
-      topratedRef.current,
-      upcomingRef.current,
-    ];
+    SECTIONS.forEach((section) => {
+      const element = refs.current[section.key];
+      if (element) observer.observe(element);
+    });
 
-    sections.forEach((sec) => sec && observer.observe(sec));
-
-    return () => sections.forEach((sec) => sec && observer.unobserve(sec));
+    return () => {
+      SECTIONS.forEach((section) => {
+        const element = refs.current[section.key];
+        if (element) observer.unobserve(element);
+      });
+    };
   }, []);
 
   return (
     <>
-      <Navbar
-        activeSection={activeSection}
-        scrollToTrending={scrollToTrending}
-        scrollToPopular={scrollToPopular}
-        scrollToToprated={scrollToToprated}
-        scrollToUpcoming={scrollToUpcoming}
-      />
+      <Navbar scrollToSection={scrollToSection} activeSection={activeSection} />
 
-      <div
-        id="trending"
-        ref={trendingRef}
-        className="scroll-mt-12 md:scroll-mt-24"
-      >
-        <MovieCarousel
-          section="Trending"
-          movies={trending}
-          loading={loadingTrending}
-        />
-      </div>
+      {error && (
+        <div className="bg-red-500 text-white p-4 text-center sticky top-16 z-40">
+          {error}
+        </div>
+      )}
 
-      <div
-        id="popular"
-        ref={popularRef}
-        className="scroll-mt-12 md:scroll-mt-24"
-      >
-        <MovieCarousel
-          section="Popular"
-          movies={popular}
-          loading={loadingPopular}
-        />
-      </div>
-
-      <div
-        id="top_rated"
-        ref={topratedRef}
-        className="scroll-mt-12 md:scroll-mt-24"
-      >
-        <MovieCarousel
-          section="Top Rated"
-          movies={topRated}
-          loading={loadingTopRated}
-        />
-      </div>
-
-      <div
-        id="upcoming"
-        ref={upcomingRef}
-        className="scroll-mt-12 md:scroll-mt-24"
-      >
-        <MovieCarousel
-          section="Upcoming"
-          movies={upcoming}
-          loading={loadingUpcoming}
-        />
-      </div>
-
+      {SECTIONS.map((section) => (
+        <div
+          key={section.key}
+          id={section.key}
+          ref={(el) => (refs.current[section.key] = el)}
+          className="scroll-mt-12 md:scroll-mt-24"
+        >
+          <MovieCarousel
+            section={section.label}
+            movies={movies[section.key]}
+            loading={loading[section.key]}
+          />
+        </div>
+      ))}
       <Footer />
       <Chatbot />
     </>
   );
 }
+
+export default memo(Home);

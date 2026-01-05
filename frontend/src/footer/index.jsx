@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import "./footer.css";
+
 const socials = [
   {
     name: "Facebook",

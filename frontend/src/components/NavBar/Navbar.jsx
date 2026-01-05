@@ -1,95 +1,65 @@
-import { memo, useCallback } from "react";
 import logo from "../../assets/logo.png";
 import UserMenu from "../UserMenu/UserMenu";
-// import { FiSearch } from "react-icons/fi";
+import { memo, useCallback } from "react";
 
-function Navbar({
-  activeSection,
-  scrollToTrending,
-  scrollToPopular,
-  scrollToToprated,
-  scrollToUpcoming,
-}) {
-  const handleTrending = useCallback(
-    () => scrollToTrending?.(),
-    [scrollToTrending]
-  );
-  const handleSciFi = useCallback(() => scrollToPopular?.(), [scrollToPopular]);
-  const handleComedy = useCallback(
-    () => scrollToToprated?.(),
-    [scrollToToprated]
-  );
-  const handleThriller = useCallback(
-    () => scrollToUpcoming?.(),
-    [scrollToUpcoming]
-  );
+const NAVBAR_LINKS = [
+  { label: "Trending", key: "trending" },
+  { label: "Top Rated", key: "topRated" },
+  { label: "Popular", key: "popular" },
+  { label: "Upcoming", key: "upcoming" },
+];
+
+const NavLink = memo(({ link, isActive, scrollToSection }) => {
+  const handleClick = useCallback(() => {
+    scrollToSection(link.key);
+  }, [link.key, scrollToSection]);
 
   return (
+    <li>
+      <button
+        className={`px-4 py-2 rounded-full font-medium cursor-pointer transition-colors duration-200 ${
+          isActive
+            ? "bg-purple-100 text-purple-700"
+            : "text-gray-700 hover:text-purple-700"
+        }`}
+        onClick={handleClick}
+      >
+        {link.label}
+      </button>
+    </li>
+  );
+});
+
+export default function Navbar({ scrollToSection, activeSection }) {
+  return (
     <nav className="w-full bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-8xl mx-auto flex items-center justify-between px-2.5">
+      <div className="flex items-center justify-between mx-3">
         {/* Logo */}
-        <div
-          onClick={handleTrending}
-          className="flex items-center gap-6 cursor-pointer"
+        <button
+          onClick={() => scrollToSection("trending")}
+          className="hover:opacity-80 transition-opacity cursor-pointer"
+          aria-label="Back to top"
         >
           <img src={logo} alt="logo" className="w-24 object-contain" />
-        </div>
+        </button>
 
-        {/* Middle Navigation */}
-        <ul className="hidden md:flex items-center gap-6 sticky top-0 z-50">
-          <li
-            onClick={handleTrending}
-            className={`px-4 py-2 rounded-full font-medium cursor-pointer ${
-              activeSection === "trending"
-                ? "bg-purple-100 text-purple-700"
-                : "text-gray-700 hover:text-purple-700"
-            }`}
-          >
-            Trending
-          </li>
-
-          <li
-            onClick={handleSciFi}
-            className={`cursor-pointer ${
-              activeSection === "popular"
-                ? "text-purple-700 font-medium"
-                : "text-gray-700 hover:text-purple-700"
-            }`}
-          >
-            Popular
-          </li>
-
-          <li
-            onClick={handleComedy}
-            className={`cursor-pointer ${
-              activeSection === "top_rated"
-                ? "text-purple-700 font-medium"
-                : "text-gray-700 hover:text-purple-700"
-            }`}
-          >
-            Top Rated
-          </li>
-
-          <li
-            onClick={handleThriller}
-            className={`cursor-pointer ${
-              activeSection === "upcoming"
-                ? "text-purple-700 font-medium"
-                : "text-gray-700 hover:text-purple-700"
-            }`}
-          >
-            Upcoming
-          </li>
+        {/* Desktop Navigation Links */}
+        <ul className="hidden md:flex gap-6 items-center">
+          {NAVBAR_LINKS.map((link) => (
+            <NavLink
+              key={link.key}
+              link={link}
+              isActive={activeSection === link.key}
+              scrollToSection={scrollToSection}
+            />
+          ))}
         </ul>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-3 pr-3">
-          {/* <FiSearch className="text-purple-600 text-xl cursor-pointer" /> */}
+        {/* User Menu */}
+        <div className="flex items-center pr-3">
           <UserMenu />
         </div>
       </div>
     </nav>
   );
 }
-
-export default memo(Navbar);
